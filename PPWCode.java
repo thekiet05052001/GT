@@ -8,4 +8,5 @@ public class PPWCode {
         this.Post = post;
         this.weight = weight;
     }
+
 }

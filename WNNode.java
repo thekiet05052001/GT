@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
 
 public class WNNode {
     String item_name;
@@ -45,5 +46,21 @@ public class WNNode {
             }
         }
         return null;
+    }
+
+    public void generateWList(HashMap<String, List<PPWCode>> wnlist) {
+        for (WNNode child : this.children) {
+            if (!wnlist.containsKey(child.item_name)) {
+                wnlist.put(child.item_name, new ArrayList<PPWCode>());
+            }
+            wnlist.get(child.item_name).add(new PPWCode(child.Pre, child.Post, child.weight));
+            child.generateWList(wnlist);
+            // HashMap<String, List<PPWCode>> temp_w = new HashMap<String, List<PPWCode>>();
+            // List<PPWCode> temp_ppwc_list = new ArrayList<PPWCode>();
+            // temp_ppwc_list.add(new PPWCode(child.Pre, child.Post, child.weight));
+            // temp_w.put(child.item_name, temp_ppwc_list);
+            // wnlist.add(temp_w);
+            // child.generateWList(wnlist);
+        }
     }
 }

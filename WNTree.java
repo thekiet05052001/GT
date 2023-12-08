@@ -48,23 +48,4 @@ public class WNTree {
         this.postorder_list.add(node);
         node.Post = this.postorder_list.size();
     }
-
-    public List<HashMap<String, PPWCode>> generateWList() {
-        List<HashMap<String, PPWCode>> w_list = new ArrayList<HashMap<String, PPWCode>>();
-        if (this.preorder_list == null) {
-            return w_list;
-        }
-        for (int i = 0; i < this.preorder_list.size(); i++) {
-            WNNode node = this.preorder_list.get(i);
-            if (node.children.size() == 0) {
-                continue;
-            }
-            HashMap<String, PPWCode> w = new HashMap<String, PPWCode>();
-            for (WNNode child : node.children) {
-                w.put(child.item_name, new PPWCode(child.Pre, child.Post, child.weight));
-            }
-            w_list.add(w);
-        }
-        return w_list;
-    }
 }
