@@ -12,6 +12,113 @@ import java.util.ArrayList;
 import java.util.Map.Entry;
 
 class Final {
+    public static void main(String[] args) {
+        final Double minws = 0.3;
+        String sampleData = "1 5 5 3 4\n 2 3 4 5\n 4 9 8 4 5";
+        List<String> sampleDataList = new ArrayList<String>();
+        try (
+                BufferedReader reader = new BufferedReader(new FileReader("retail-mini.dat.txt"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sampleDataList.add(line);
+            }
+            reader.close();
+        } catch (FileNotFoundException e) {
+            System.out.println("File not found.");
+            e.printStackTrace();
+        } catch (IOException e) {
+            System.out.println("Error reading file.");
+            e.printStackTrace();
+        }
+        sampleData = String.join("\n", sampleDataList);
+        long startTime = System.nanoTime();
+        // Generate weight and item list with weights
+        Pair<HashMap<String, HashMap<String, HashMap<String, Double>>>, HashMap<String, Double>> tWMapAndMemoizedPair = generateWeight(
+                sampleData);
+        long endTime = System.nanoTime();
+        HashMap<String, Double> item_weights = tWMapAndMemoizedPair.getValue();
+
+        // Calculate transaction weight
+        Pair<HashMap<String, Double>, Double> tWAndATWPair = calculate_trasnact_weight(tWMapAndMemoizedPair.getKey());
+
+        HashMap<String, Double> transaction_weights = tWAndATWPair.getKey();
+
+        // Calculate items weighted support
+        HashMap<String, Double> item_wss_temp = calculateSingleWS(item_weights, tWMapAndMemoizedPair.getKey(),
+                tWAndATWPair.getKey(), tWAndATWPair.getValue());
+
+        HashMap<String, Double> item_wss = new HashMap<String, Double>();
+        item_wss_temp.forEach((k, v) -> {
+            if (v < minws) {
+                item_wss.put(k, v);
+            }
+        });
+
+        WNTree tree = new WNTree();
+        for (String transaction : tWMapAndMemoizedPair.getKey().keySet()) {
+            HashMap<String, HashMap<String, Double>> transaction_item_weight = tWMapAndMemoizedPair.getKey()
+                    .get(transaction);
+            ArrayList<String> processed_transaction = new ArrayList<String>();
+            Map<String, Double> temp_items = new HashMap<String, Double>();
+
+            for (String item : transaction_item_weight.keySet()) {
+                if (item_wss.containsKey(item)) {
+                    temp_items.put(item, transaction_item_weight.get(item).get("weight"));
+                }
+                List<Map.Entry<String, Double>> list = new ArrayList<Map.Entry<String, Double>>(
+                        temp_items.entrySet());
+                Collections.sort(list, new Comparator<Map.Entry<String, Double>>() {
+                    public int compare(Map.Entry<String, Double> o1, Map.Entry<String, Double> o2) {
+                        return Double.compare(o2.getValue(), o1.getValue());
+                    }
+                });
+
+                list.forEach((v) -> {
+                    if (!processed_transaction.contains(v.getKey())) {
+                        processed_transaction.add(v.getKey());
+                    }
+                });
+
+            }
+            insertTree(tree, processed_transaction, transaction_weights.get(transaction));
+        }
+
+        // Traverse preorder and postorder
+        tree.traversePreorder(tree.root, 1);
+        tree.traversePostOrder(tree.root, 0);
+
+        // Generate WNList
+        HashMap<String, List<PPWCode>> w_map = new HashMap<String, List<PPWCode>>();
+        tree.root.generateWList(w_map);
+        // w_map.forEach((k, v) -> {
+        // v.forEach((vt) -> {
+        // System.out.println("I:" + k + " Pr:" + vt.Pre + " Po:" + vt.Post + " W:" +
+        // vt.weight);
+        // });
+        // });
+        ArrayList<Entry<String, List<PPWCode>>> w_list = new ArrayList<Entry<String, List<PPWCode>>>(w_map.entrySet());
+        List<String> fwci = new ArrayList<String>();
+        startTime = System.nanoTime();
+        Find_FWCI(w_list, tWAndATWPair.getValue(), fwci, minws);
+        endTime = System.nanoTime();
+
+        System.out.println(fwci);
+        System.out.println("Time to find FWCI: " + (endTime - startTime) / 1000000 + "ms");
+        // for (int i = 0; i < w_list.size(); i++) {
+        // for (int j = i + 1; j < w_list.size(); j++) {
+        // Entry<String, List<PPWCode>> intersected_wl = intersectWL(w_list.get(i),
+        // w_list.get(j));
+        // if (intersected_wl == null) {
+        // continue;
+        // }
+        // intersected_wl.getValue().forEach((v) -> {
+        // System.out.println(
+        // "I:" + intersected_wl.getKey() + " Pr:" + v.Pre + " Po:" + v.Post + " W:" +
+        // v.weight);
+        // });
+        // }
+        // }
+    }
     public static Pair<HashMap<String, HashMap<String, HashMap<String, Double>>>, HashMap<String, Double>> generateWeight(
             String data) {
         String[] lines = data.split("\n");
@@ -205,111 +312,5 @@ class Final {
         return a_smallest_pre < d_smallest_pre && a_largest_post > d_largest_post;
     }
 
-    public static void main(String[] args) {
-        final Double minws = 0.3;
-        String sampleData = "1 5 5 3 4\n 2 3 4 5\n 4 9 8 4 5";
-        List<String> sampleDataList = new ArrayList<String>();
-        try (
-                BufferedReader reader = new BufferedReader(new FileReader("retail-mini.dat.txt"))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sampleDataList.add(line);
-            }
-            reader.close();
-        } catch (FileNotFoundException e) {
-            System.out.println("File not found.");
-            e.printStackTrace();
-        } catch (IOException e) {
-            System.out.println("Error reading file.");
-            e.printStackTrace();
-        }
-        sampleData = String.join("\n", sampleDataList);
-        long startTime = System.nanoTime();
-        // Generate weight and item list with weights
-        Pair<HashMap<String, HashMap<String, HashMap<String, Double>>>, HashMap<String, Double>> tWMapAndMemoizedPair = generateWeight(
-                sampleData);
-        long endTime = System.nanoTime();
-        HashMap<String, Double> item_weights = tWMapAndMemoizedPair.getValue();
-
-        // Calculate transaction weight
-        Pair<HashMap<String, Double>, Double> tWAndATWPair = calculate_trasnact_weight(tWMapAndMemoizedPair.getKey());
-
-        HashMap<String, Double> transaction_weights = tWAndATWPair.getKey();
-
-        // Calculate items weighted support
-        HashMap<String, Double> item_wss_temp = calculateSingleWS(item_weights, tWMapAndMemoizedPair.getKey(),
-                tWAndATWPair.getKey(), tWAndATWPair.getValue());
-
-        HashMap<String, Double> item_wss = new HashMap<String, Double>();
-        item_wss_temp.forEach((k, v) -> {
-            if (v < minws) {
-                item_wss.put(k, v);
-            }
-        });
-
-        WNTree tree = new WNTree();
-        for (String transaction : tWMapAndMemoizedPair.getKey().keySet()) {
-            HashMap<String, HashMap<String, Double>> transaction_item_weight = tWMapAndMemoizedPair.getKey()
-                    .get(transaction);
-            ArrayList<String> processed_transaction = new ArrayList<String>();
-            Map<String, Double> temp_items = new HashMap<String, Double>();
-
-            for (String item : transaction_item_weight.keySet()) {
-                if (item_wss.containsKey(item)) {
-                    temp_items.put(item, transaction_item_weight.get(item).get("weight"));
-                }
-                List<Map.Entry<String, Double>> list = new ArrayList<Map.Entry<String, Double>>(
-                        temp_items.entrySet());
-                Collections.sort(list, new Comparator<Map.Entry<String, Double>>() {
-                    public int compare(Map.Entry<String, Double> o1, Map.Entry<String, Double> o2) {
-                        return Double.compare(o2.getValue(), o1.getValue());
-                    }
-                });
-
-                list.forEach((v) -> {
-                    if (!processed_transaction.contains(v.getKey())) {
-                        processed_transaction.add(v.getKey());
-                    }
-                });
-
-            }
-            insertTree(tree, processed_transaction, transaction_weights.get(transaction));
-        }
-
-        // Traverse preorder and postorder
-        tree.traversePreorder(tree.root, 1);
-        tree.traversePostOrder(tree.root, 0);
-
-        // Generate WNList
-        HashMap<String, List<PPWCode>> w_map = new HashMap<String, List<PPWCode>>();
-        tree.root.generateWList(w_map);
-        // w_map.forEach((k, v) -> {
-        // v.forEach((vt) -> {
-        // System.out.println("I:" + k + " Pr:" + vt.Pre + " Po:" + vt.Post + " W:" +
-        // vt.weight);
-        // });
-        // });
-        ArrayList<Entry<String, List<PPWCode>>> w_list = new ArrayList<Entry<String, List<PPWCode>>>(w_map.entrySet());
-        List<String> fwci = new ArrayList<String>();
-        startTime = System.nanoTime();
-        Find_FWCI(w_list, tWAndATWPair.getValue(), fwci, minws);
-        endTime = System.nanoTime();
-
-        System.out.println(fwci);
-        System.out.println("Time to find FWCI: " + (endTime - startTime) / 1000000 + "ms");
-        // for (int i = 0; i < w_list.size(); i++) {
-        // for (int j = i + 1; j < w_list.size(); j++) {
-        // Entry<String, List<PPWCode>> intersected_wl = intersectWL(w_list.get(i),
-        // w_list.get(j));
-        // if (intersected_wl == null) {
-        // continue;
-        // }
-        // intersected_wl.getValue().forEach((v) -> {
-        // System.out.println(
-        // "I:" + intersected_wl.getKey() + " Pr:" + v.Pre + " Po:" + v.Post + " W:" +
-        // v.weight);
-        // });
-        // }
-        // }
-    }
+    
 }
